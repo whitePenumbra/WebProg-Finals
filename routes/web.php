@@ -11,6 +11,14 @@
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Auth::routes();
+
+Route::get('/', 'HomeController@index')->name('home');
+Route::post('/submit', 'PostController@store')->name('submit');
+Route::get('/post/{id}', 'PostController@show')->name('show');
+
+Route::post('/settings/update', 'ProfileController@update')->name('settings');
+Route::get('/profile/{username}', 'ProfileController@show')->name('profile');
+Route::get('/post/upvote/{id}', 'VoteController@upvote')->name('upvote');
+Route::get('/post/downvote/{id}', 'VoteController@downvote')->name('downvote');
+Route::post('/comment/submit', 'CommentController@create')->name('comment');

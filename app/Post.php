@@ -16,11 +16,13 @@ class Post extends Model
         'content',
         'photo',
         'user_id',
+        'upvotes',
+        'downvotes'
     ];
 
     public function comments()
     {
-        return $this->morphMany('App\Comment', 'commentable')->oldest();
+        return $this->hasMany('App\Comment');
     }
 
     public function user()
