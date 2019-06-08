@@ -3,37 +3,33 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\Upvoted;
-use App\Vote;
-use App\Post;
 
 class VoteController extends Controller
 {
     public function upvote($id)
     {        
-        $hasUpvote = Vote::where('user_id', Auth()->user()->id)
-                         ->where('post_id', $id)
-                         ->where('vote', '1')
-                         ->count();
-        $hasDownvote = Vote::where('user_id', Auth()->user()->id)
+        $checkExistingUpvote = Vote::where('user_id', Auth()->user()->user_id)
+                                ->where('post_id', $id)
+                                ->where('vote', '1')
+                                ->count();
+        $checkExistingDownvote = Vote::where('user_id', Auth()->user()->user_id)
+                                ->where('post_id', $id)
+                                ->where('vote', '0')
+                                ->count();
+
+        if($checkExistingUpvote==1){
+            $undoUpvote =  Vote::where('user_id', Auth()->user()->user_id)
                             ->where('post_id', $id)
-                            ->where('vote', '0')
-                            ->count();
-
-        if($hasUpvote==1){
-            $removeUp =  Vote::where('user_id', Auth()->user()->id)
-                             ->where('post_id', $id)
-                             ->where('vote', '1')
-                             ->first();
-            $removeUp->delete();
-
-            $upvoteCt = Vote::where('post_id', $id)
                             ->where('vote', '1')
-                            ->count();
+                            ->first();
+            $undoUpvote->delete();
+            
+            $storeUpvotes = Vote::where('post_id', $id)
+                                ->where('vote', '1')
+                                ->count();
 
             $post = Post::find($id);
-            $post->upvotes = $upvoteCt;
+            $post->upvotes = $storeUpvotes;
             $post->save();
 
             return redirect()->back();
@@ -41,44 +37,38 @@ class VoteController extends Controller
         else {
             $post = Post::find($id);
 
-            if($hasDownvote==1){
-                $removeDown =  Vote::where('user_id', Auth()->user()->id)
+            if($checkExistingDownvote==1){
+                $undoDownvote =  Vote::where('user_id', Auth()->user()->user_id)
                                 ->where('post_id', $id)
                                 ->where('vote', '0')
                                 ->first();
-                $removeDown->vote = '1';
-                $removeDown->save();
+                $undoDownvote->vote = '1';
+                $undoDownvote->save();
 
-                if($removeDown->user_id!=$post->user_id){
-                    $user = User::find(Auth()->user()->id);
-                    Mail::to($user->email)->send(new Upvoted($post));
+                if($undoDownvote->user_id!=$post->user_id){
+                    $user = User::where('user_id', $post->user_id)->first();
+                    Mail::to($user->email)->send(new Upvoted($undoDownvote, $post));
                 }
             }
             else {
-                $createUpvote = new Vote ([
-                                'user_id' => Auth()->user()->id,
-                                'post_id' => $id,
-                                'vote' => '1'
+                $upvote = new Vote ([
+                    'user_id' => Auth()->user()->user_id,
+                    'post_id' => $id,
+                    'vote' => '1'
                 ]);
-                $createUpvote->save();  
+                $upvote->save();  
                 
-                if($createUpvote->user_id!=$post->user_id){
-                    $user = User::find(Auth()->user()->id);
-                    Mail::to($user->email)->send(new Upvoted($post));
+                if($upvote->user_id!=$post->user_id){
+                    $user = User::where('user_id', $post->user_id)->first();
+                    Mail::to($user->email)->send(new Upvoted($upvote, $post));
                 }
             }
 
-            $upvoteCt = Vote::where('post_id', $id)
-                            ->where('vote', '1')
-                            ->count();
-
-            $downvoteCt = Vote::where('post_id', $id)
-                                ->where('vote', '0')
+            $storeUpvotes = Vote::where('post_id', $id)
+                                ->where('vote', '1')
                                 ->count();
 
-            $post = Post::find($id);
-            $post->upvotes = $upvoteCt;
-            $post->downvotes = $downvoteCt;
+            $post->upvotes = $storeUpvotes;
             $post->save();
             
             return redirect()->back();
@@ -87,65 +77,56 @@ class VoteController extends Controller
 
     public function downvote($id)
     {
-        $hasUpvote = Vote::where('user_id', Auth()->user()->id)
-                        ->where('post_id', $id)
-                        ->where('vote', '1')
-                        ->count();
-        $hasDownvote = Vote::where('user_id', Auth()->user()->id)
+        $checkExistingUpvote = Vote::where('user_id', Auth()->user()->user_id)
+                                ->where('post_id', $id)
+                                ->where('vote', '1')
+                                ->count();
+        $checkExistingDownvote = Vote::where('user_id', Auth()->user()->user_id)
+                                    ->where('post_id', $id)
+                                    ->where('vote', '0')
+                                    ->count();
+
+        if($checkExistingDownvote==1){
+            $undoDownvote =  Vote::where('user_id', Auth()->user()->user_id)
                             ->where('post_id', $id)
                             ->where('vote', '0')
-                            ->count();
+                            ->first();
+            $undoDownvote->delete();
 
-        if($hasDownvote==1){
-            $removeDown =  Vote::where('user_id', Auth()->user()->id)
-                                ->where('post_id', $id)
-                                ->where('vote', '0')
-                                ->first();
-            $removeDown->delete();
-            
-            $downvoteCt = Vote::where('post_id', $id)
-                            ->where('vote', '0')
-                            ->count();
+            $storeDownvotes = Vote::where('post_id', $id)
+                                   ->where('vote', '0')
+                                   ->count();
 
             $post = Post::find($id);
-            $post->downvotes = $downvoteCt;
+            $post->downvotes = $storeDownvotes;
             $post->save();
-
+            
             return redirect()->back();
         }
         else {
-            if($hasUpvote==1){
-                $removeUp =  Vote::where('user_id', Auth()->user()->id)
+            if($checkExistingUpvote==1){
+                $undoUpvote =  Vote::where('user_id', Auth()->user()->user_id)
                                 ->where('post_id', $id)
                                 ->where('vote', '1')
                                 ->first();
-                $removeUp->vote = '0';
-                $removeUp->save();
+                $undoUpvote->vote = '0';
+                $undoUpvote->save();
             }
             else {
-            $createDownvote = new Vote ([
-                            'user_id' => Auth()->user()->id,
-                            'post_id' => $id,
-                            'vote' => '0'
+            $downvote = new Vote ([
+                'user_id' => Auth()->user()->user_id,
+                'post_id' => $id,
+                'vote' => '0'
             ]);
-            $createDownvote->save();
+            $downvote->save();
             }
 
-            $downvoteCt = Vote::where('post_id', $id)
-                            ->where('vote', '0')
-                            ->count();
-
-            $upvoteCt = Vote::where('post_id', $id)
-                            ->where('vote', '1')
-                            ->count();
-
-            $downvoteCt = Vote::where('post_id', $id)
-                                ->where('vote', '0')
-                                ->count();
+            $storeDownvotes = Vote::where('post_id', $id)
+                                  ->where('vote', '0')
+                                  ->count();
 
             $post = Post::find($id);
-            $post->upvotes = $upvoteCt;
-            $post->downvotes = $downvoteCt;
+            $post->downvotes = $storeDownvotes;
             $post->save();
 
             return redirect()->back();

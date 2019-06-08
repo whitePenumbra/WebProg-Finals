@@ -18,9 +18,6 @@ class CreatePostsTable extends Migration
             $table->string('title');
             $table->longText('content');
             $table->bigInteger('user_id')->unsigned();
-            $table->string('photo')->nullable();
-            $table->integer('upvotes')->default(0);
-            $table->integer('downvotes')->default(0);
             $table->timestamps();
 
             $table->foreign('user_id')->references('id')->on('users');

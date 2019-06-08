@@ -3,32 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Comment;
-use App\User;
-use App\Post;
-use App\Mail\Commented;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 
 class CommentController extends Controller
 {
-    public function create(Request $request)
+    public function addComment(Request $request, Post $post)
     {
         $this->validate($request, [
-            'comment' => 'required'
+            'content' => 'required',
         ]);
 
         $comment = new Comment([
-            'comment' => $request->get('comment'),
+            'content' => $request->get('content'),
             'post_id' => $request->get('post_id'),
-            'user_id' => Auth()->user()->id
+            'user_id' => Auth()->user()->user_id,
         ]);
 
-        $comment->save();
+        $post->comments()->save($comment);
 
-        $post = Post::find($comment->post_id);
-        $user = User::find(Auth()->user()->id);
-        Mail::to($user->email)->send(new Commented($comment, $post));
-        
-        return redirect()->back()->with('status','Comment posted!');
+        if($comment->user_id!=$post->user_id){
+            $user = User::where('user_id', $post->user_id)->first();
+            Mail::to($user->email)->send(new Commented($comment, $post));
+        }
+        return back()->withMessage('Comment posted!');
     }
 }

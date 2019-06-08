@@ -2,14 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\User;
 use App\Post;
-use App\Comment;
-use App\Vote;
 use Illuminate\Http\Request;
+use App\Http\Requests\PostRequest;
 
 class PostController extends Controller
 {
+
+    /**
+     * Show the form for creating a new resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create(PostRequest $request)
+    {
+        $postCount = Post::where('user_id', Auth()->user()->user_id)->count();
+        $commentCount = Comment::where('user_id', Auth()->user()->user_id)->count();
+        return view('pages.create')->with('postCount', $postCount)
+                                   ->with('commentCount', $commentCount);
+    }
+
     /**
      * Store a newly created resource in storage.
      *
@@ -18,29 +30,17 @@ class PostController extends Controller
      */
     public function store(Request $request)
     {
-        $this->validate($request, [
-            'title' => 'required',
-            'content' => 'required',
-            'photo' => 'nullable|image'
-        ]);
-
-        if($request->has('photo')){
-            $filename = $request->get('title').auth()->user()->id.'-photo.'.request()->photo->getClientOriginalExtension();
-            request()->photo->move(public_path('postimages'), $filename);
-        } else {
-            $filename = NULL;
-        }
+        Post::create($request->validated());
 
         $post = new Post([
-            'user_id' => auth()->user()->id,
+            'user_id' => auth()->user()->user_id,
             'title' => $request->get('title'),
             'content' => $request->get('content'),
-            'photo' => $filename
         ]);
 
         $post->save();
 
-        return redirect()->route('home')->with('status', "Successfully posted!");
+        return redirect()->back()->with('postAlert', "Successfully posted!");
     }
 
     /**
@@ -52,14 +52,17 @@ class PostController extends Controller
     public function show($id)
     {
         $post = Post::find($id);
-        $users = User::all();
-        $upvoted = Vote::where('post_id', $id)
+        $post->viewCount++;
+        $post->save();
+
+        $users = User::get();
+        $hasUpvoted = Vote::where('post_id', $id)
                         ->where('vote', '1')
-                        ->where('user_id', Auth()->user()->id)
+                        ->where('user_id', Auth()->user()->user_id)
                         ->count();
-        $downvoted = Vote::where('post_id', $id)
+        $hasDownvoted = Vote::where('post_id', $id)
                         ->where('vote', '0')
-                        ->where('user_id', Auth()->user()->id)
+                        ->where('user_id', Auth()->user()->user_id)
                         ->count();
         $upvotes = Vote::where('post_id', $id)
                         ->where('vote', '1')
@@ -68,11 +71,28 @@ class PostController extends Controller
                         ->where('vote', '0')
                         ->count();
 
-        return view('post')->with('post',$post)
-                            ->with('users', $users)
-                            ->with('upvoted', $upvoted)
-                            ->with('downvoted', $downvoted)
-                            ->with('upvotes', $upvotes)
-                            ->with('downvotes', $downvotes);
+        $postCount = Post::where('user_id', Auth()->user()->user_id)->count();
+        $commentCount = Comment::where('user_id', Auth()->user()->user_id)->count();
+        return view('pages.post')->with('post',$post)
+                                 ->with('users', $users)
+                                 ->with('hasUpvoted', $hasUpvoted)
+                                 ->with('hasDownvoted', $hasDownvoted)
+                                 ->with('upvotes', $upvotes)
+                                 ->with('downvotes', $downvotes)
+                                 ->with('postCount', $postCount)
+                                 ->with('commentCount', $commentCount);
+    }
+
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \App\Post  $post
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy($id)
+    {
+        $post = Post::find($id);
+        $post->comments()->delete();
+        $post->delete();
     }
 }
